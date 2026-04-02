@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGENDA ONLINE</title>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// CONFIGURAÇÃO DO FIREBASE (SEU PROJETO)
+const firebaseConfig = {
+  apiKey: "AIzaSyBdKUgP84RwfiEbvSA6SHhbcRTpqhNyUMY",
+  authDomain: "agenda-e473e.firebaseapp.com",
+  projectId: "agenda-e473e",
+  storageBucket: "agenda-e473e.firebasestorage.app",
+  messagingSenderId: "393510589304",
+  appId: "1:393510589304:web:6b6ec3fbdb2280880dae8d"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// FORMATA DATA DD/MM/AAAA
+function formatarData(dataISO) {
+  if (!dataISO) return "";
+  const partes = dataISO.split("-");
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+// CRIAR LINHA NA TABELA
+function criarLinha(nome, data, hora, id) {
+  const tabela = document.getElementById("tabela");
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${nome}</td><td>${formatarData(data)}</td><td>${hora}</td><td><button onclick="remover('${id}')">Excluir</button></td>`;
+  tabela.appendChild(tr);
+}
+
+// CARREGAR DADOS ORDENADOS POR DATA E HORA
+async function carregar() {
+  const tabela = document.getElementById("tabela");
+  tabela.innerHTML = "";
+  try {
+    const q = query(collection(db, "agenda"), orderBy("data","asc"), orderBy("hora","asc"));
+    const snapshot = await getDocs(q);
+
+    if(snapshot.empty){
+      // Entrada inicial automática
+      const hoje = new Date();
+      const dataHoje = hoje.toISOString().split("T")[0];
+      const horaAgora = hoje.toTimeString().slice(0,5);
+      await addDoc(collection(db, "agenda"), { nome:"Exemplo", data:dataHoje, hora:horaAgora });
+      return carregar();
+    }
+
+    snapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      criarLinha(d.nome, d.data, d.hora, docSnap.id);
+    });
+  } catch(e){
+    console.error("Erro:",e);
+    alert("Erro ao acessar Firestore. Verifique firebaseConfig e regras.");
+  }
+}
+
+// ADICIONAR REGISTRO
+async function adicionar() {
+  const nome = document.getElementById("nome").value;
+  const data = document.getElementById("data").value;
+  const hora = document.getElementById("hora").value;
+  if(!nome || !data || !hora){ alert("Preencha todos os campos!"); return; }
+  await addDoc(collection(db, "agenda"), {nome,data,hora});
+  document.getElementById("nome").value="";
+  document.getElementById("data").value="";
+  document.getElementById("hora").value="";
+  carregar();
+}
+
+// REMOVER REGISTRO
+async function remover(id){
+  await deleteDoc(doc(db,"agenda",id));
+  carregar();
+}
+
+window.adicionar = adicionar;
+window.remover = remover;
+window.onload = carregar;
+</script>
+
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f9;padding:20px;}
+h1{text-align:center;}
+.container{max-width:700px;margin:auto;background:white;padding:20px;border-radius:10px;box-shadow:0 5px 15px rgba(0,0,0,0.1);}
+input, button{padding:8px;margin:5px;}
+button{background:#007bff;color:white;border:none;border-radius:5px;cursor:pointer;}
+table{width:100%;border-collapse:collapse;margin-top:15px;}
+th, td{border:1px solid #ddd;padding:8px;text-align:center;}
+th{background:#007bff;color:white;}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>AGENDA ONLINE</h1>
+
+<input type="text" id="nome" placeholder="Nome">
+<input type="date" id="data">
+<input type="time" id="hora">
+<button onclick="adicionar()">Salvar</button>
+
+<table>
+<thead>
+<tr>
+<th>Nome</th>
+<th>Data</th>
+<th>Horário</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody id="tabela"></tbody>
+</table>
+</div>
+</body>
+</html>
